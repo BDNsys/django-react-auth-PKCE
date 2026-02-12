@@ -1,58 +1,129 @@
-// API service for Django backend integration
+import type { AuthTokens, AuthResponse, RegisterResponse, ApiError } from '../types';
+
 const API_BASE_URL = '/api';
 
-interface ApiResponse<T> {
-    data?: T;
-    error?: string;
-}
-
 class ApiService {
-    private async request<T>(
-        endpoint: string,
-        options: RequestInit = {}
-    ): Promise<ApiResponse<T>> {
-        try {
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers,
-                },
-                ...options,
-            });
+    private tokens: AuthTokens | null = null;
+    private refreshInProgress: Promise<string | null> | null = null;
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+    constructor() {
+        const storedTokens = localStorage.getItem('auth_tokens');
+        if (storedTokens) {
+            try {
+                this.tokens = JSON.parse(storedTokens);
+            } catch (e) {
+                console.error('Failed to parse stored tokens', e);
             }
-
-            const data = await response.json();
-            return { data };
-        } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
         }
     }
 
-    async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-        return this.request<T>(endpoint);
+    setTokens(tokens: AuthTokens | null) {
+        this.tokens = tokens;
+        if (tokens) {
+            localStorage.setItem('auth_tokens', JSON.stringify(tokens));
+        } else {
+            localStorage.removeItem('auth_tokens');
+        }
     }
 
-    async post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
-        return this.request<T>(endpoint, {
+    getTokens(): AuthTokens | null {
+        return this.tokens;
+    }
+
+    private async refreshToken(): Promise<string | null> {
+        if (this.refreshInProgress) return this.refreshInProgress;
+
+        if (!this.tokens?.refresh) return null;
+
+        this.refreshInProgress = (async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/token/refresh/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh: this.tokens?.refresh }),
+                });
+
+                if (!response.ok) throw new Error('Refresh failed');
+
+                const data = await response.json();
+                const newTokens = { ...this.tokens!, access: data.access };
+                this.setTokens(newTokens);
+                return data.access;
+            } catch (error) {
+                this.setTokens(null);
+                return null;
+            } finally {
+                this.refreshInProgress = null;
+            }
+        })();
+
+        return this.refreshInProgress;
+    }
+
+    private async request<T>(
+        endpoint: string,
+        options: RequestInit = {}
+    ): Promise<T> {
+        let headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...(options.headers as Record<string, string>),
+        };
+
+        if (this.tokens?.access) {
+            headers['Authorization'] = `Bearer ${this.tokens.access}`;
+        }
+
+        let response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers,
+        });
+
+        // Auto-refresh if 401 Unauthorized
+        if (response.status === 401 && this.tokens?.refresh) {
+            const newAccessToken = await this.refreshToken();
+            if (newAccessToken) {
+                headers['Authorization'] = `Bearer ${newAccessToken}`;
+                response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    ...options,
+                    headers,
+                });
+            }
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            const error: ApiError = data;
+            throw error;
+        }
+
+        return data as T;
+    }
+
+    async login(credentials: any): Promise<AuthResponse> {
+        const data = await this.request<AuthResponse>('/login/', {
             method: 'POST',
-            body: JSON.stringify(body),
+            body: JSON.stringify(credentials),
         });
+        this.setTokens({ access: data.access, refresh: data.refresh });
+        return data;
     }
 
-    async put<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
-        return this.request<T>(endpoint, {
-            method: 'PUT',
-            body: JSON.stringify(body),
+    async register(userData: any): Promise<RegisterResponse> {
+        const data = await this.request<RegisterResponse>('/users/', {
+            method: 'POST',
+            body: JSON.stringify(userData),
         });
+        this.setTokens({ access: data.access, refresh: data.refresh });
+        return data;
     }
 
-    async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-        return this.request<T>(endpoint, {
-            method: 'DELETE',
-        });
+    async getCurrentUser(): Promise<any> {
+        return this.request<any>('/users/me/');
+    }
+
+    logout() {
+        this.setTokens(null);
     }
 }
 

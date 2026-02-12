@@ -22,9 +22,9 @@ from django.conf.urls.static import static
 from django.views.static import serve
 from rest_framework.routers import DefaultRouter
 from users.views import UserViewSet
+from users.auth_views import MyTokenObtainPairView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
 
@@ -35,7 +35,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     # JWT Auth:
-    path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/login/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # Swagger UI:
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

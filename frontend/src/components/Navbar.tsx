@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import './Navbar.css';
 
 const Navbar = () => {
     const location = useLocation();
+    const { isAuthenticated, user, logout } = useAuth();
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -31,19 +33,30 @@ const Navbar = () => {
                             About
                         </Link>
                     </li>
-                    <li>
-                        <Link
-                            to="/dashboard"
-                            className={`navbar-link ${isActive('/dashboard') ? 'active' : ''}`}
-                        >
-                            Dashboard
-                        </Link>
-                    </li>
+                    {isAuthenticated && (
+                        <li>
+                            <Link
+                                to="/dashboard"
+                                className={`navbar-link ${isActive('/dashboard') ? 'active' : ''}`}
+                            >
+                                Dashboard
+                            </Link>
+                        </li>
+                    )}
                 </ul>
 
                 <div className="navbar-actions">
-                    <button className="btn-secondary">Sign In</button>
-                    <button className="btn-primary">Get Started</button>
+                    {isAuthenticated ? (
+                        <div className="user-menu">
+                            <span className="user-email">{user?.email}</span>
+                            <button className="btn-secondary" onClick={logout}>Logout</button>
+                        </div>
+                    ) : (
+                        <>
+                            <Link to="/login" className="btn-secondary">Sign In</Link>
+                            <Link to="/register" className="btn-primary">Get Started</Link>
+                        </>
+                    )}
                 </div>
             </div>
         </nav>

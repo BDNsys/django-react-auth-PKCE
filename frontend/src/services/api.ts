@@ -114,12 +114,69 @@ class ApiService {
             method: 'POST',
             body: JSON.stringify(userData),
         });
-        this.setTokens({ access: data.access, refresh: data.refresh });
+        // Remove direct token setting here if the backend doesn't return tokens on register immediately
+        // But based on views.py, it does return tokens.
+        if (data.access && data.refresh) {
+            this.setTokens({ access: data.access, refresh: data.refresh });
+        }
+        return data;
+    }
+
+    async googleLogin(code: string, codeVerifier: string): Promise<AuthResponse> {
+        const data = await this.request<AuthResponse>('/google/login/', {
+            method: 'POST',
+            body: JSON.stringify({ code, code_verifier: codeVerifier }),
+        });
+        if (data.access && data.refresh) {
+            this.setTokens({ access: data.access, refresh: data.refresh });
+        }
         return data;
     }
 
     async getCurrentUser(): Promise<User> {
         return this.request<User>('/users/me/');
+    }
+
+    async get<T>(endpoint: string): Promise<{ data?: T; error?: string }> {
+        try {
+            const data = await this.request<T>(endpoint, { method: 'GET' });
+            return { data };
+        } catch (error: any) {
+            return { error: error.detail || error.message || 'An error occurred' };
+        }
+    }
+
+    async post<T>(endpoint: string, body: any): Promise<{ data?: T; error?: string }> {
+        try {
+            const data = await this.request<T>(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(body),
+            });
+            return { data };
+        } catch (error: any) {
+            return { error: error.detail || error.message || 'An error occurred' };
+        }
+    }
+
+    async put<T>(endpoint: string, body: any): Promise<{ data?: T; error?: string }> {
+        try {
+            const data = await this.request<T>(endpoint, {
+                method: 'PUT',
+                body: JSON.stringify(body),
+            });
+            return { data };
+        } catch (error: any) {
+            return { error: error.detail || error.message || 'An error occurred' };
+        }
+    }
+
+    async delete<T>(endpoint: string): Promise<{ data?: T; error?: string }> {
+        try {
+            const data = await this.request<T>(endpoint, { method: 'DELETE' });
+            return { data };
+        } catch (error: any) {
+            return { error: error.detail || error.message || 'An error occurred' };
+        }
     }
 
     logout() {

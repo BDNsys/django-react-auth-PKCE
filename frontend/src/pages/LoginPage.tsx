@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import './Auth.css';
+import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -29,6 +30,51 @@ const LoginPage: React.FC = () => {
             setIsLoading(false);
         }
     };
+
+    const handleGoogleLogin = async () => {
+        try {
+            setError(null);
+            const verifier = generateCodeVerifier();
+            const challenge = await generateCodeChallenge(verifier);
+
+            // Store verifier for the callback
+            sessionStorage.setItem('google_code_verifier', verifier);
+
+            const clientId = import.meta.env.VITE_SOCIAL_AUTH_GOOGLE_CLIENT_ID;
+            const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URL || 'http://localhost:5173/callback';
+
+            if (!clientId) {
+                setError('Google Client ID not found');
+                return;
+            }
+
+            const searchParams = new URLSearchParams({
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                response_type: 'code',
+                scope: 'email profile',
+                code_challenge: challenge,
+                code_challenge_method: 'S256',
+                access_type: 'online', // Ensure we get a refresh token if needed, or just standard flow
+            });
+
+            window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${searchParams.toString()}`;
+        } catch (err) {
+            console.error('Google login initialization failed', err);
+            setError('Failed to initialize Google login');
+        }
+    };
+
+    const queryParams = new URLSearchParams(location.search);
+    const queryError = queryParams.get('error');
+
+    // Show error from callback if present
+    React.useEffect(() => {
+        if (queryError) {
+            setError(queryError);
+        }
+    }, [queryError]);
+
 
     return (
         <div className="auth-page">
@@ -78,7 +124,7 @@ const LoginPage: React.FC = () => {
                 <div className="auth-divider">or continue with</div>
 
                 <div className="auth-social">
-                    <button className="btn-google placeholder" title="Google Login coming soon">
+                    <button className="btn-google" onClick={handleGoogleLogin}>
                         <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" width="20" height="20" />
                         Log in with Google
                     </button>

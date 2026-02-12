@@ -24,3 +24,19 @@ export const useRegister = () => {
         },
     });
 };
+
+export const useGoogleLogin = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ code, codeVerifier }: { code: string; codeVerifier: string }) =>
+            api.googleLogin(code, codeVerifier),
+        onSuccess: (data: AuthResponse) => {
+            if (data.user) {
+                queryClient.setQueryData(queryKeys.auth.user(), data.user);
+            } else {
+                queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
+            }
+        },
+    });
+};

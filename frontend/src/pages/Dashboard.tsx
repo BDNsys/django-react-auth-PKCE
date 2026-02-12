@@ -21,7 +21,7 @@ const Dashboard = () => {
         setError(null);
 
         // Example API call - replace with your actual endpoint
-        const response = await api.get<DashboardData>('/dashboard');
+        const response = await api.get<DashboardData>('/dashboard/');
 
         if (response.error) {
             setError(response.error);

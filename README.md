@@ -12,11 +12,11 @@ A modern, production-ready full-stack template combining Django's powerful backe
 
 - 🎨 **Modern UI Design** - Premium dark theme with glassmorphism effects and smooth animations
 - ⚡ **Lightning Fast** - Vite for instant HMR and optimized production builds
-- 🔒 **Secure** - Django's battle-tested security features built-in
+- 🔒 **Secure** - Django's battle-tested security features with JWT and **Google PKCE Flow**
 - 📱 **Fully Responsive** - Beautiful on all devices from mobile to desktop
 - 🔌 **API Ready** - Pre-configured Django REST Framework integration
 - 📦 **Type Safe** - TypeScript throughout the frontend
-- 🎯 **Production Ready** - Optimized build configuration and deployment setup
+- 🎯 **Production Ready** - Optimized deployment setup with `public_html` serving static assets
 
 ## 🛠️ Tech Stack
 
@@ -102,22 +102,26 @@ The frontend dev server will be available at `http://localhost:5173`
 ## 📁 Project Structure
 
 ```
-django-react-template/
-├── backend/                 # Django backend
-│   ├── api/                # API app
-│   ├── backend/            # Project settings
+django-react-auth-PKCE/
+├── backend/                 # Django backend (configuration in config/)
+│   ├── users/              # User management & OAuth logic
+│   ├── config/             # Project settings & URLs
 │   ├── manage.py
 │   └── db.sqlite3
-├── frontend/               # React frontend
+├── frontend/               # React frontend (Vite-based)
 │   ├── src/
 │   │   ├── components/    # Reusable components
-│   │   ├── pages/         # Page components
+│   │   ├── pages/         # Page components (including GoogleCallback)
+│   │   ├── hooks/         # Custom React hooks (Auth, Mutations)
 │   │   ├── services/      # API service layer
 │   │   ├── App.tsx        # Main app component
 │   │   └── main.tsx       # Entry point
-│   ├── build/             # Production build output
 │   ├── package.json
 │   └── vite.config.ts
+├── public_html/            # Production static files
+│   ├── static/             # Django collected static files
+│   ├── media/              # User uploaded media
+│   └── index.html          # Built frontend entry point
 └── README.md
 ```
 
@@ -144,22 +148,39 @@ npm run dev
 - Backend API: `http://localhost:8000/api/`
 - Django Admin: `http://localhost:8000/admin/`
 
-### Production Build
+### Production Build & Deployment
 
+The project is structured to serve all static assets from the `public_html` directory, making it compatible with most shared hosting and VPS setups.
+
+1. **Build Frontend:**
 ```bash
-# Build frontend
 cd frontend
 npm run build
-
-# Collect static files
-cd ../backend
-python manage.py collectstatic --noinput
-
-# Run Django (serves the built React app)
-python manage.py runserver
+# The build output is moved to ../public_html
 ```
 
-Visit `http://localhost:8000` to see the production build served by Django.
+2. **Collect Backend Static Files:**
+```bash
+cd ../backend
+python manage.py collectstatic --noinput
+# Static files are collected into ../public_html/static/
+```
+
+3. **Server Configuration:**
+Point your web server (Nginx/Apache) to use `public_html` as the document root for static files, while proxying API requests to the Django Gunicorn/Uvicorn server.
+
+## 🔐 Google Auth (PKCE Flow)
+
+This template implements the **Proof Key for Code Exchange (PKCE)** flow for secure Google Authentication, which modern web applications prefer over the implicit flow.
+
+### How it works:
+1. **Frontend Initiation**: The frontend generates a random `code_verifier` and a `code_challenge`.
+2. **Google Redirect**: The user is redirected to Google with the `code_challenge`.
+3. **Authorization Code**: Google redirects back with an `authorization_code`.
+4. **Secure Exchange**: The frontend sends both the `authorization_code` and the original `code_verifier` to our backend.
+5. **Backend Verification**: The backend exchanges these with Google for an access token, which is then used to identify the user and issue a JWT.
+
+This flow ensures that even if the `authorization_code` is intercepted, it cannot be used without the `code_verifier` (which never leaves the client during the initial redirect).
 
 ## 🎨 Customization
 
@@ -216,7 +237,7 @@ python manage.py rename YOUR_PROJECT_NAME
 ```
 
 Or manually update:
-- `backend/backend/` directory name
+- `backend/config/` directory name
 - References in `settings.py`, `wsgi.py`, `asgi.py`
 - `manage.py` imports
 
@@ -230,11 +251,12 @@ npm pkg set name="your-project-name"
 ### 2. Update Configuration
 
 - Update `frontend/index.html` title
-- Modify `backend/settings.py`:
+- Modify `backend/config/settings.py`:
   - Change `SECRET_KEY` (generate a new one)
   - Update `ALLOWED_HOSTS` for production
   - Configure database settings
-  - Add your domain to `CORS_ALLOWED_ORIGINS` if using CORS
+  - Add your domain to `CORS_ALLOWED_ORIGINS`
+  - Update Google OAuth credentials in `.env`
 
 ### 3. Set Up Your Repository
 

@@ -20,23 +20,27 @@ from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
+from rest_framework.routers import DefaultRouter
+from users.views import UserViewSet
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+
+router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
-    
-    # Serve static assets from the build directory
-    re_path(r'^assets/(?P<path>.*)$', serve, {
-        'document_root': settings.BASE_DIR.parent / 'public_html' / 'assets',
-    }),
-    
-    # Serve vite.svg and other root-level static files
-    re_path(r'^(?P<path>.*\.(svg|png|jpg|jpeg|gif|ico|json|txt))$', serve, {
-        'document_root': settings.BASE_DIR.parent / 'public_html',
-    }),
-    
-    # React SPA fallback - must be last
-    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
+    path('api/', include(router.urls)),
+    # JWT Auth:
+    path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # Swagger UI:
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
 # Serve media files in development

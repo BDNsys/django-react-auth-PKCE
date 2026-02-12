@@ -1,6 +1,10 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useCallback } from 'react';
 import type { User } from '../types';
 import api from '../services/api';
+import { useUser } from '../hooks/auth/useUser';
+import { useLogin, useRegister } from '../hooks/auth/useAuthMutations';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queryKeys';
 
 interface AuthContextType {
     user: User | null;
@@ -14,53 +18,33 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const token = api.getTokens();
+    const { data: user, isLoading: isUserLoading } = useUser(!!token);
+
+    const loginMutation = useLogin();
+    const registerMutation = useRegister();
 
     const logout = useCallback(() => {
         api.logout();
-        setUser(null);
-    }, []);
-
-    const fetchUser = useCallback(async () => {
-        try {
-            // Check if we have tokens before fetching
-            const tokens = api.getTokens();
-            if (!tokens) {
-                setIsLoading(false);
-                return;
-            }
-
-            const response = await api.getCurrentUser();
-            setUser(response);
-        } catch (error) {
-            console.error('Failed to fetch user', error);
-            logout(); // session likely invalid
-        } finally {
-            setIsLoading(false);
-        }
-    }, [logout]);
-
-    useEffect(() => {
-        fetchUser();
-    }, [fetchUser]);
+        queryClient.setQueryData(queryKeys.auth.user(), null);
+        queryClient.removeQueries({ queryKey: queryKeys.auth.all });
+    }, [queryClient]);
 
     const login = async (credentials: any) => {
-        const response = await api.login(credentials);
-        setUser(response.user);
+        await loginMutation.mutateAsync(credentials);
     };
 
     const register = async (userData: any) => {
-        const response = await api.register(userData);
-        setUser(response.user);
+        await registerMutation.mutateAsync(userData);
     };
 
     return (
         <AuthContext.Provider
             value={{
-                user,
+                user: user ?? null,
                 isAuthenticated: !!user,
-                isLoading,
+                isLoading: isUserLoading && !!token,
                 login,
                 register,
                 logout,

@@ -1,6 +1,6 @@
-import type { AuthTokens, AuthResponse, RegisterResponse, ApiError } from '../types';
+import type { AuthTokens, AuthResponse, RegisterResponse, ApiError, User } from '../types';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 class ApiService {
     private tokens: AuthTokens | null = null;
@@ -118,8 +118,8 @@ class ApiService {
         return data;
     }
 
-    async getCurrentUser(): Promise<any> {
-        return this.request<any>('/users/me/');
+    async getCurrentUser(): Promise<User> {
+        return this.request<User>('/users/me/');
     }
 
     logout() {

@@ -68,7 +68,7 @@ lerna-debug.log*
 *.sw?
 
 # Public HTML build outputs
-public_html/*
+
 !public_html/.htaccess
 !public_html/media/
 public_html/media/*

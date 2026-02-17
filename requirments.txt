@@ -6,3 +6,10 @@ Markdown==3.10
 sqlparse==0.5.4
 drf-spectacular==0.29.0
 djangorestframework-simplejwt==5.5.1
+
+dotenv
+django-cors-headers
+dj-rest-auth
+django-allauth
+requests
+cryptography
